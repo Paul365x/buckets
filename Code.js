@@ -1,20 +1,20 @@
 const ignores = [ "contents","Summary", "Totals", "Standard Transactions", "Instructions", "BucketTemplate"]; // sheet names that are not buckets
 const trailerSheets = 3;  // number of non bucket sheets at the end
 const startRow = 2;  // where the data begins
-const aCol = "A";    // col letter for checkboxes
-const bCol = "B";    // col letter for sheet/bucket names
-const cCol = "C";    // col for bucket balances
-const formCol = "E"; // col for input fields range start
-const fromCol = "F"; // totals column for sheet the line came from
+//const aCol = "A";    // col letter for checkboxes
+const bCol = "A";    // col letter for sheet/bucket names
+const cCol = "B";    // col for bucket balances
+const formCol = "D"; // col for input fields range start
+const fromCol = "D"; // totals column for sheet the line came from
 const formDateCol = "H"; // new transaction date field
 const balCol = "E";  // col in bucket for the balance
 const debCol = "D";  // col in bucket for debits
 const credCol = "C"; // col in buckets for credits
 const folderId = ""; // id of the buckets folder
 const fileId = "buckets 2024"; // id of the buckets file
-const timestampLoc = "F5"; // location for the last backup timestamp
-const fromCell = "E2";     // bucket selector to copy from
-const toCell = "F2";       // bucket select to copy to
+const timestampLoc = "E5"; // location for the last backup timestamp
+const fromCell = "D2";     // bucket selector to copy from
+const toCell = "E2";       // bucket select to copy to
 
 //https://docs.google.com/spreadsheets/d/1rXn_D5ZbQW_1B0NlzvHSeCkocHBVI-tO8MMRlpE4PUw/edit?usp=sharing
 //https://docs.google.com/spreadsheets/d/1h4FB9jrM6G9b0UY0TB4Rtz4ww1Lc4RT--37hDaDzg0Y/edit?usp=sharing
@@ -35,10 +35,10 @@ function onOpen() {
       .addItem( "Backup", "BACKUP" )
       .addItem( "Regenerate Totals", "GENERATETOTALS" )      
       .addToUi();
-  doDropdown(fromCell);
-  doDropdown(toCell);
+  resetForm();  
 }
 
+/*
 // turns checkboxes into radio buttons
 function onEdit(e) {
   let col = aCol.charCodeAt(0) - 64;
@@ -79,6 +79,17 @@ function updateBucket(row) {
    let dateStr = splitDate( currentDate());
    dateLoc.setValue( dateStr );
 }
+*/
+function resetForm() { 
+  let ss = SpreadsheetApp.getActive().getSheetByName("Summary");
+  let range = ss.getRange( formCol + startRow + ":" + formDateCol + startRow );
+  range.clear(); 
+  doDropdown(fromCell);
+  doDropdown(toCell);  
+  let dateLoc = ss.getRange( formDateCol + startRow + ":" + formDateCol + startRow)
+  let dateStr = splitDate( currentDate());
+  dateLoc.setValue( dateStr );
+}
 
 //
 // Menu handlers
@@ -106,7 +117,7 @@ function REFRESH () {
    var sheet = SpreadsheetApp.getActive().getSheetByName("Summary");
    var range = sheet.getRange(cCol+ startRow +":" + cCol );
    var maxLoc = range.getNextDataCell(SpreadsheetApp.Direction.DOWN).getA1Notation();
-   range = sheet.getRange( aCol + startRow + ":" + maxLoc );
+   range = sheet.getRange( bCol + startRow + ":" + maxLoc );
    range.clear();
    range.deleteCells(SpreadsheetApp.Dimension.ROWS);
 
@@ -115,11 +126,11 @@ function REFRESH () {
    if ( maxRow === 0 ) {
        return;
    }
-   SETCHECK(maxRow);
+   //SETCHECK(maxRow);
    SETBALANCE(maxRow);
 }
 
-// transactin Apply handler
+// transaction Apply handler
 function APPLY() {
   let toCol = String.fromCharCode(formCol.charCodeAt(0)+1)
   let commentCol = String.fromCharCode(formCol.charCodeAt(0) + 2);
@@ -129,15 +140,16 @@ function APPLY() {
   let toVal = ss.getRange(toCol + startRow + ":" + toCol + startRow ).getValue();
   let commentVal = ss.getRange(commentCol + startRow + ":" + commentCol + startRow ).getValue();
   let amountVal = ss.getRange(amountCol + startRow + ":" + amountCol + startRow ).getValue();
-  let dateStr = ss.getRange(formDateCol + startRow + ":" + formDateCol + startRow ).getValue();  
-  transact( bucketVal,amountVal, dateStr, commentVal );
-  if (toVal !== "") {
-    amountVal *= -1;
-    transact( toVal,amountVal, dateStr, commentVal );
+  let dateStr = ss.getRange(formDateCol + startRow + ":" + formDateCol + startRow ).getValue();
+  if (bucketVal !== "None") {  
+    transact( bucketVal,amountVal, dateStr, commentVal );
+    if (toVal !== "None") {
+      amountVal *= -1;
+      transact( toVal,amountVal, dateStr, commentVal );
+    }
   }
   REFRESH();
-  let range = ss.getRange( formCol + startRow + ":" + formDateCol + startRow );
-  range.clear();
+  resetForm();
 }
 
 // carry out a single transaction used by apply and standardtrans
@@ -164,7 +176,7 @@ function transact( bucketVal,amountVal, dateStr, commentVal ) {
      }
      sheet.insertRowsBefore(startRow, 1);
      
-     let range = sheet.getRange( aCol + startRow + ":" + debCol + startRow );
+     let range = sheet.getRange( bCol + startRow + ":" + debCol + startRow );
      range.setValues(values);
     
      // need to update the totals from column with sheet name
@@ -242,11 +254,11 @@ function GENERATETOTALS () {
   let sheetNames = GETSHEETNAMES();
   sheetNames.forEach(function (sheetName) {  
     let ss = SpreadsheetApp.getActive().getSheetByName( sheetName );
-    let copyRows = Number(GETMAXROW( sheetName, aCol)); 
-    let from = ss.getRange( aCol + startRow + ":" + debCol + copyRows);    
+    let copyRows = Number(GETMAXROW( sheetName, bCol)); 
+    let from = ss.getRange( bCol + startRow + ":" + debCol + copyRows);    
     lastRows = Number(lastRows) + Number(copyRows)-1;
     if (lastRows < nextRow ) lastRows = nextRow;
-    let to = ssTotal.getRange( aCol + nextRow + ":" + debCol + lastRows);
+    let to = ssTotal.getRange( bCol + nextRow + ":" + debCol + lastRows);
     to.setValues(from.getValues());
     let fromSheet = ssTotal.getRange(fromCol + nextRow + ":" + fromCol + lastRows);
     fromSheet.setValue(sheetName)
@@ -333,18 +345,20 @@ function SETSHEETNAMES() {
   return maxRow;
 }
 
+/*
 // update the checkbox column
 function SETCHECK( maxRow ) {
    let ss = SpreadsheetApp.getActive().getSheetByName("Summary");  
    //let chkRange = ss.getActiveRange();
    ss.getRange( aCol + startRow + ":" + aCol + maxRow).insertCheckboxes();
 }
+*/
 
-// update the checkbox column
+// sort the transactions in a bucket
 function SORTSHEET( sheetName, colName ) {
-   let maxRow = GETMAXROW( sheetName, aCol)
+   let maxRow = GETMAXROW( sheetName, bCol)
    let ss = SpreadsheetApp.getActive().getSheetByName(sheetName); 
-   let totRange = ss.getRange( aCol + startRow + ":" + colName + maxRow);
+   let totRange = ss.getRange( bCol + startRow + ":" + colName + maxRow);
    totRange.sort([{column: 1, ascending: false}]);
 
 }
